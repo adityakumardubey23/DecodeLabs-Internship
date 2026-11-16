@@ -1,110 +1,138 @@
-# 🔐 Password Strength Checker
+# System Vulnerability Checklist
 
-**DecodeLabs Cyber Security Internship, Project 1 (Batch 2026)**
+A small, defensive, read-only system-auditing project inspired by **Project 4: System Vulnerability Checklist** in the supplied training slides.
 
-A small command-line tool that tells you whether a password is **Weak**, **Medium** or **Strong**, and explains why. It's written in plain Python with no external libraries, so it runs anywhere Python 3.8+ is installed.
+It helps a student or junior security analyst establish a baseline, inspect common endpoint controls, record manual checks, prioritize findings, and produce a Markdown/JSON report.
 
-I built this as the "defensive phase" starter project: the goal wasn't fancy hacking, it was getting the security logic right using only string handling and conditions.
+> **Scope and safety:** Run this only on a computer you own or are explicitly authorized to assess. The automated checks are intended to read configuration/status information only. The tool does not exploit vulnerabilities, change settings, install software, disable controls, collect passwords, or upload data. Some checks are platform-dependent and may return `UNKNOWN` when the operating system does not expose reliable information.
 
----
+## Features
 
-## What it does
+- Detects operating system and basic host information.
+- Checks firewall status where a supported native command is available.
+- Checks disk-encryption status where a supported native command is available.
+- Inspects local administrator-group membership on supported systems.
+- Checks for pending operating-system updates using native package/update tools.
+- Provides manual checklist items for password/passphrase quality, phishing-resistant MFA, guest access, physical security, least privilege, and unapproved software.
+- Produces timestamped Markdown and JSON reports locally.
+- Supports a manual findings file so observations and remediation can be documented.
 
-- Checks **length**. Anything under 8 characters fails straight away.
-- Checks for **uppercase letters, digits and symbols** (and lowercase too).
-- Handles **Unicode** (emoji, accents, Hindi, etc.) without breaking.
-- Spots **common passwords**, including leet-speak tricks like `P@ssw0rd`.
-- Flags **predictable patterns** such as `qwer`, `1234`, `abcd` and `aaa`.
-- Gives a rough **entropy estimate** in bits.
-- Prints a simple **score bar** and **tips** on how to improve.
+## Requirements
+
+- Python 3.10 or newer
+- Windows 10/11, macOS, or a Linux distribution
+- No third-party Python packages are required
 
 ## Quick start
 
+### 1. Open a terminal in this project directory
+
 ```bash
-git clone https://github.com/<your-username>/password-strength-checker.git
-cd password-strength-checker
-
-python password_checker.py          # interactive mode
-python password_checker.py --demo   # see a few sample results
-python -m unittest -v               # run the tests
+python --version
 ```
 
-In interactive mode your typing is hidden (it uses `getpass`), and pressing Enter on an empty line quits.
+### 2. Install the local project and run the audit
 
-## Example output
-
-```
-Password: Summer2024
-
-  Strength : MEDIUM   [#####----] 5/9
-  Entropy  : ~59.5 bits (estimate)
-  Tips:
-    - Try 12+ characters for a real safety margin.
-    - Add a symbol.
+```bash
+python -m pip install -e .
+sysaudit audit
 ```
 
-```
-Password: Xk9#mP2$vL7!qR4z
+To write reports to a chosen directory:
 
-  Strength : STRONG   [#########] 9/9
-  Entropy  : ~105.1 bits (estimate)
-  Tips:
-    - Looks great. Store it in a password manager.
+```bash
+sysaudit audit --output reports
 ```
 
-## How the scoring works
+On Windows, if the `sysaudit` command is not on PATH immediately after installation, use:
 
-The score runs from 0 to 9.
+```powershell
+py -m pip install -e .
+py -m sysaudit.cli audit --output reports
+```
 
-| Part | Points |
-|------|--------|
-| Length 8-11 / 12-15 / 16+ | 1 / 2 / 3 |
-| Each character type present (lower, upper, digit, symbol) | +1 each |
-| Entropy of 45+ bits / 60+ bits | +1 / +2 |
-| Contains a common word or leet version of one | -3 |
-| Keyboard or alphabet run (4+ chars) | -2 |
-| Same character 3 times in a row | -1 |
+On macOS/Linux:
 
-**Final label**
+```bash
+python3 -m pip install -e .
+python3 -m sysaudit.cli audit --output reports
+```
 
-- **Weak**: fewer than 8 characters, an exact common password, or a score under 4
-- **Medium**: score of 4 or more
-- **Strong**: score of 7 or more **and** it has an uppercase letter, a number and a symbol **and** it isn't built on a common word
+## Commands
 
-That last rule matters: a high score alone can't push a bad password into "Strong".
+| Command | Purpose |
+|---|---|
+| `sysaudit audit` | Run supported read-only checks and create Markdown + JSON reports |
+| `sysaudit checklist` | Print the manual review checklist |
+| `sysaudit audit --output reports` | Choose report output directory |
 
-## Design decisions
+## What is checked
 
-- **One pass, O(n).** Character types are collected in a single loop, so validation time grows linearly with password length.
-- **No echo, no storage.** The password is never printed back, logged or saved. One honest caveat: Python strings are immutable, so the value can't be wiped from memory on demand. For a production system you'd handle that more carefully.
-- **No passwords on the command line.** I deliberately didn't add a `--password` flag, because shell history would record it.
-- **Entropy is an estimate.** It assumes random characters from the detected pool, so it's an upper bound. Human-chosen passwords are usually weaker than the number suggests, which is why the pattern penalties exist.
+| Area | Automated evidence | Limitations |
+|---|---|---|
+| Firewall | Native firewall status query | A third-party endpoint agent may manage network controls separately |
+| Disk encryption | BitLocker, FileVault, or Linux block-device indicators | Linux layouts vary; validate full-disk coverage manually |
+| Administrator rights | Local Administrators / admin / sudo / wheel group membership | Directory-managed identities may not be fully represented |
+| OS updates | Native update/package-manager query | Availability and output vary by OS and package manager |
+| Passwords and MFA | Manual review | The tool never requests or reads credentials; verify passkeys/security keys and account settings yourself |
+| Guest access and shadow IT | Manual review | Requires an authorized review of accounts and installed applications |
+| Physical/behavioral hygiene | Manual review | Verify screen lock, removable media, backups, and social-engineering procedures |
+
+## Understanding results
+
+- `PASS`: the check found the expected protective state.
+- `WARN`: the check found a potentially weak or incomplete state that needs review.
+- `INFO`: informational evidence; not automatically a vulnerability.
+- `UNKNOWN`: the check could not reliably determine the state. Do not interpret this as secure.
+
+The tool intentionally avoids claiming that a system is fully secure. A clean automated report is not a penetration test, compliance certification, or guarantee against compromise.
+
+## Manual checklist
+
+1. **Identity:** Use long, unique passphrases; use a password manager; enable phishing-resistant MFA (FIDO2/WebAuthn security key or passkey) where supported; remove stale accounts.
+2. **Patch management:** Enable automatic security updates; update browsers and applications; remove unsupported software; document exceptions.
+3. **Human perimeter:** Disable unused guest accounts; review administrator membership; lock the screen when away; restrict removable storage; verify requests through a second trusted channel.
+4. **Network and endpoint:** Confirm firewall profiles are enabled; enable full-disk encryption; maintain backups; verify endpoint protection is active.
+5. **Shadow IT:** Review installed applications and browser extensions against organizational policy; do not uninstall anything without authorization.
+
+## Record manual findings
+
+Copy `docs/report-template.md` and record at least three specific observations from your own authorized audit. For each finding include evidence, impact, risk level, remediation, and a verification result after remediation. Do not include passwords, recovery codes, personal files, or other secrets in the report.
 
 ## Project structure
 
+```text
+system-vulnerability-checklist/
+├── README.md
+├── pyproject.toml
+├── requirements.txt
+├── .gitignore
+├── src/
+│   └── sysaudit/
+│       ├── __init__.py
+│       ├── checks.py
+│       ├── cli.py
+│       ├── models.py
+│       └── reporting.py
+├── docs/
+│   └── report-template.md
+└── tests/
+    └── test_models.py
 ```
-.
-├── password_checker.py        # main program
-├── test_password_checker.py   # unit tests
-└── README.md
+
+## Testing
+
+```bash
+python -m unittest discover -s tests -v
 ```
 
-## Limitations
+## Limitations and responsible use
 
-- The common-password list is small (about 40 entries) to keep the repo light. A real deployment should load a large breach list.
-- Long passphrases such as `correcthorsebatterystaple` are capped at Medium because they lack the required character types. That follows the project policy, but it's debatable in the real world.
+- Run with normal user privileges first. Elevated privileges are not required for most checks and should only be used when your organization authorizes them.
+- Some commands may be absent or restricted. The tool reports `UNKNOWN` rather than guessing.
+- The output may contain a hostname and local account names. Store and share reports according to your organization's privacy policy.
+- Review every proposed remediation with the system owner before changing configuration.
 
-## Ideas for next steps
+## Learning references
 
-- Load a big wordlist like `rockyou`-style top-N files from a text file
-- Check against the Have I Been Pwned range API (k-anonymity)
-- Add a passphrase mode that rewards length over character variety
-- Feed validated passwords into Project 2 (hashing with Argon2id), the "gatekeeper" idea: validate first, hash second
-
-## Author
-
-Built by **<Aditya Dubey>** as part of the DecodeLabs Industrial Training Kit.
-
-## License
-
-MIT. Use it, learn from it, improve it.
+The supplied training material mentions NIST SP 800-63B, CIS Controls, CVSS, ISO 27001, and SOC 2. This project is an educational checklist, not an official implementation or certification of those frameworks. Consult the current official publications and your organization's policies for authoritative requirements.
